@@ -10,10 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@apollo/client": "^4.2.10",
-    "@nhost/nhost-js": "^4.8.0",
+    "@apollo/client": "^3.14.1",
+    "@nhost/nhost-js": "^3.3.1",
     "@nhost/react": "^3.11.2",
     "graphql": "^16.14.2",
+    "graphql-ws": "^6.2.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
