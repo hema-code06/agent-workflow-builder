@@ -114,4 +114,10 @@ Schema, relationships, and permissions were built directly via the Hasura Consol
 
 ---
 
+## ⭐ Show Your Support
+
+If you like this project, please give it a ⭐ on GitHub — it motivates me to keep building!
+
+---
+
 
