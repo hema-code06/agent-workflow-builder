@@ -42,6 +42,15 @@ workflows → workflow_runs → step_runs
 
 ---
 
+## Test Accounts (seeded for demo)
+
+| Email | Password | Org | Role |
+|---|---|---|---|
+| ownerA@test.com | Test1234! | Org A | owner |
+| viewerB@test.com | Test1234! | Org B | viewer |
+
+---
+
 ## Local Setup
 
 ### Prerequisites
@@ -105,11 +114,4 @@ Schema, relationships, and permissions were built directly via the Hasura Consol
 
 ---
 
-## Test Accounts (seeded for demo)
 
-| Email | Password | Org | Role |
-|---|---|---|---|
-| ownerA@test.com | Test1234! | Org A | owner |
-| viewerB@test.com | Test1234! | Org B | viewer |
-
----
