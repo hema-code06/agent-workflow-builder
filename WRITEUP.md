@@ -29,3 +29,17 @@ Because every status change (`running` → `succeeded`/`failed`/`paused`) is wri
 ## Cross-Org Isolation (verified)
 
 Tested directly: a `viewer` in Org B, given Org A's real `workflow_id` (not guessed — the exact UUID), receives `null` from a direct `workflows_by_pk` query, and receives an explicit `403 Not authorized` from `triggerWorkflowRun` when attempting to trigger it. The `null` result comes from Hasura's row permission (Layer 1); the `403` comes from the Action handler's own independent role check (Layer 2) — meaning even if a future Layer 1 permission had a bug, the Action handler is a second, independent line of defense against cross-org access.
+
+This was verified twice: once directly against the GraphQL API (headers manually set to viewerB's session), and again through the actual deployed frontend UI — logging in as viewerB shows only Org B, with no path in the interface to reach Org A's data at all.
+
+## Deployment Architecture
+
+The three pieces of the system are deployed independently rather than co-located, matching how this would run in production:
+
+- **Database + GraphQL API (nhost/Hasura):** hosted on nhost's managed cloud, providing Postgres, Hasura, and Auth as a single always-on service.
+- **Action handler backend (Express):** deployed on **Render** (free tier), running `backend/index.js` continuously. Hasura's two Actions (`triggerWorkflowRun`, `approveStep`) point directly at this Render URL as their webhook handler, so the system works end-to-end without any local machine or tunnel needing to be active. (Earlier in development, a local backend was exposed via ngrok for iteration; the Render deployment replaced this for the live/reviewable version.)
+- **Frontend (React/Vite):** deployed on **Vercel**, calling Hasura's GraphQL endpoint directly for queries/mutations and via WebSocket for the live subscription.
+
+One practical consequence of using Render's free tier: the backend sleeps after ~15 minutes of inactivity and takes 30–50 seconds to wake on the next request. This is disclosed in the README rather than hidden, since it affects the first click of a cold demo but not the underlying correctness of the system.
+
+---
