@@ -6,15 +6,24 @@ Users inside an organization build workflows out of multiple step types, start t
 
 ---
 
+### Test Accounts
+
+| Email | Password | Org | Role |
+|---|---|---|---|
+| ownerA@test.com | Test1234! | Org A | owner |
+| viewerB@test.com | Test1234! | Org B | viewer |
+
+---
+
 ## Tech Stack
 
 - **nhost** — Postgres + Hasura + Auth
 - **Hasura GraphQL Engine** — schema, relationships, permissions, Actions
 - **PostgreSQL** — data storage
 - **GraphQL** — queries, mutations, subscriptions
-- **Node.js / Express** — custom Action handler backend (executes workflow steps)
-- **React (Vite)** + **Apollo Client** — frontend, with live subscriptions via `graphql-ws`
-- **LLM API** —  `llm_call` implementation
+- **Node.js / Express** — custom Action handler backend (executes workflow steps), deployed on **Render**
+- **React (Vite) + Apollo Client** — frontend, with live subscriptions via `graphql-ws`, deployed on **Vercel**
+- **LLM API** — `llm_call` implementation
 
 ---
 
@@ -36,18 +45,18 @@ workflows → workflow_runs → step_runs
 
 - **Two trigger types implemented:**
   - **Manual** — Run button in the frontend, calls `triggerWorkflowRun`.
-  - **Webhook** — a public POST endpoint (`/webhook-trigger/:workflow_id`) that starts a run without any user session, simulating an external system calling in.
+  - **Webhook** — a public POST endpoint (`/webhook-trigger/:workflow_id`) that starts a run without any user session, simulating an external system calling in. 
 
 - **Live updates:** a GraphQL subscription on `step_runs` (filtered by `workflow_run_id`) streams step-by-step status to the frontend in real time, including the `paused` state.
 
 ---
 
-## Local Setup
+## Local Setup (to run your own copy)
 
 ### Prerequisites
 - Node.js 18+
 - An [nhost](https://nhost.io) project (free tier)
-- [ngrok](https://ngrok.com) (free tier) — to expose your local backend to Hasura Actions
+- (Optional, for local dev only) [ngrok](https://ngrok.com) — to expose a locally-running backend to Hasura Actions instead of using the deployed Render backend
 
 ### 1. Clone the repo
 
@@ -76,13 +85,15 @@ Run the backend:
 node index.js
 ```
 
-### 3. Expose the backend with ngrok
+### 3. Point Hasura Actions at your backend
 
+**For local development:** expose your local backend with ngrok:
 ```bash
 ngrok http 4000
 ```
-
 Copy the forwarding URL (e.g. `https://xxxx.ngrok-free.dev`) and set it as the **Webhook Handler** URL for both Hasura Actions (`triggerWorkflowRun` → `/trigger-workflow-run`, `approveStep` → `/approve-step`) in the Hasura Console.
+
+**For production (as deployed here):** the backend is deployed permanently on [Render](https://render.com) (root directory: `backend`, build command: `npm install`, start command: `node index.js`, with the same environment variables as above set in Render's dashboard). The Hasura Actions point directly at the Render URL — no tunnel needed, and it works independent of any local machine being on.
 
 ### 4. Frontend setup
 
@@ -105,11 +116,11 @@ Schema, relationships, and permissions were built directly via the Hasura Consol
 
 ---
 
-## Test Accounts (seeded for demo)
+## ⭐ Show Your Support
 
-| Email | Password | Org | Role |
-|---|---|---|---|
-| ownerA@test.com | Test1234! | Org A | owner |
-| viewerB@test.com | Test1234! | Org B | viewer |
+If you like this project, please give it a ⭐ on GitHub — it motivates me to keep building!
 
 ---
+
+*Built with ❤️ using React · Vite · Node.js · Express · Hasura GraphQL · PostgreSQL · nhost*
+
