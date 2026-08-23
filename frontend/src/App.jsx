@@ -4,6 +4,23 @@ import { useQuery, useMutation, useSubscription, gql } from '@apollo/client';
 import { useAccessToken } from '@nhost/react';
 import { setApolloToken } from './apollo';
 
+
+const CREATE_WORKFLOW = gql`
+  mutation CreateWorkflow($org_id: uuid!, $name: String!, $description: String, $created_by: uuid!, $now: timestamptz!) {
+    insert_workflows_one(object: {
+      org_id: $org_id,
+      name: $name,
+      description: $description,
+      created_by: $created_by,
+      created_at: $now,
+      updated_at: $now
+    }) {
+      id
+      name
+    }
+  }
+`;
+
 const GET_WORKFLOWS = gql`
   query GetWorkflows($org_id: uuid!) {
     workflows(where: { org_id: { _eq: $org_id } }) {
@@ -83,6 +100,49 @@ function LoginScreen() {
   );
 }
 
+function CreateWorkflowForm({ orgId, userId, onCreated }) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [createWorkflow, { loading }] = useMutation(CREATE_WORKFLOW);
+
+  const handleSubmit = async () => {
+    if (!name.trim()) return;
+    await createWorkflow({
+      variables: {
+        org_id: orgId,
+        name,
+        description,
+        created_by: userId,
+        now: new Date().toISOString(),
+      },
+    });
+    setName('');
+    setDescription('');
+    onCreated();
+  };
+
+  return (
+    <div style={{ border: '1px dashed #999', padding: 15, marginBottom: 20 }}>
+      <h4>Create New Workflow</h4>
+      <input
+        placeholder="Workflow name"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        style={{ display: 'block', marginBottom: 8, width: '100%', padding: 6 }}
+      />
+      <input
+        placeholder="Description (optional)"
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+        style={{ display: 'block', marginBottom: 8, width: '100%', padding: 6 }}
+      />
+      <button onClick={handleSubmit} disabled={loading || !name.trim()}>
+        {loading ? 'Creating...' : 'Create Workflow'}
+      </button>
+    </div>
+  );
+}
+
 function RunStatus({ runId }) {
   const { data, loading } = useSubscription(STEP_RUNS_SUB, { variables: { run_id: runId } });
   const [approveStep] = useMutation(APPROVE_STEP);
@@ -120,6 +180,7 @@ function Dashboard() {
   const { data: orgsData, loading: orgsLoading, error: orgsError } = useQuery(GET_MY_ORGS);
   const [selectedOrgId, setSelectedOrgId] = useState(null);
   const [activeRunId, setActiveRunId] = useState(null);
+  const [activeWorkflowId, setActiveWorkflowId] = useState(null);
 
   const myOrgs = orgsData?.org_members || [];
   const currentOrg = myOrgs.find(m => m.org_id === selectedOrgId);
@@ -134,6 +195,7 @@ function Dashboard() {
   const handleRun = async (workflowId) => {
     const res = await triggerRun({ variables: { workflow_id: workflowId } });
     setActiveRunId(res.data.triggerWorkflowRun.run_id);
+    setActiveWorkflowId(workflowId);
     refetch();
   };
 
@@ -163,19 +225,27 @@ function Dashboard() {
         <p>Quota: {currentOrg.organization.quota_used} / {currentOrg.organization.quota_limit}</p>
       )}
 
+      {currentOrg && currentOrg.role !== 'viewer' && (
+        <CreateWorkflowForm
+          orgId={selectedOrgId}
+          userId={userId}
+          onCreated={refetch}
+        />
+      )}
+
       {wfLoading && <p>Loading workflows...</p>}
 
       {workflowsData?.workflows.map(wf => (
         <div key={wf.id} style={{ border: '1px solid #ccc', padding: 15, marginBottom: 15 }}>
           <h3>{wf.name}</h3>
-          <p>Steps: {wf.workflow_steps.map(s => s.step_type).join(' → ')}</p>
+          <p>Steps: {wf.workflow_steps.map(s => s.step_type).join(' → ') || 'none yet'}</p>
           <p>Last run: {wf.workflow_runs[0]?.status || 'never run'}</p>
 
           {currentOrg?.role !== 'viewer' && (
             <button onClick={() => handleRun(wf.id)}>Run Workflow</button>
           )}
 
-          {activeRunId && <RunStatus runId={activeRunId} />}
+          {activeRunId && activeWorkflowId === wf.id && <RunStatus runId={activeRunId} />}
         </div>
       ))}
     </div>
