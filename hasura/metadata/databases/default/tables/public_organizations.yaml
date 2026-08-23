@@ -1,0 +1,25 @@
+table:
+  name: organizations
+  schema: public
+array_relationships:
+  - name: org_members
+    using:
+      foreign_key_constraint_on:
+        column: org_id
+        table:
+          name: org_members
+          schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - quota_limit
+        - quota_used
+        - name
+        - created_at
+        - id
+      filter:
+        org_members:
+          user_id:
+            _eq: X-Hasura-User-Id
+    comment: ""

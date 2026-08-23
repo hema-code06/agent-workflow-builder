@@ -1,0 +1,17 @@
+table:
+  name: org_usage_stats
+  schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - completed_runs
+        - total_runs
+        - quota_limit
+        - quota_used
+        - org_name
+        - org_id
+      filter:
+        org_id:
+          _in: []
+    comment: ""

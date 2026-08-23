@@ -1,0 +1,24 @@
+actions:
+  - name: approveStep
+    definition:
+      kind: synchronous
+      handler: https://agent-workflow-builder.onrender.com/approve-step
+      forward_client_headers: true
+    permissions:
+      - role: user
+  - name: triggerWorkflowRun
+    definition:
+      kind: synchronous
+      handler: https://agent-workflow-builder.onrender.com/trigger-workflow-run
+      forward_client_headers: true
+    permissions:
+      - role: user
+custom_types:
+  enums: []
+  input_objects:
+    - name: SampleInput
+  objects:
+    - name: SampleOutput
+    - name: TriggerWorkflowRunOutput
+    - name: ApproveStepOutput
+  scalars: []

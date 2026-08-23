@@ -1,0 +1,27 @@
+table:
+  name: workflow_runs
+  schema: public
+object_relationships:
+  - name: user
+    using:
+      foreign_key_constraint_on: triggered_by
+  - name: workflow
+    using:
+      foreign_key_constraint_on: workflow_id
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - status
+        - completed_at
+        - started_at
+        - id
+        - triggered_by
+        - workflow_id
+      filter:
+        workflow:
+          organization:
+            org_members:
+              user_id:
+                _eq: X-Hasura-User-Id
+    comment: ""
