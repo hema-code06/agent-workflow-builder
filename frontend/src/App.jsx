@@ -5,6 +5,21 @@ import { useAccessToken } from '@nhost/react';
 import { setApolloToken } from './apollo';
 
 
+const ADD_STEP = gql`
+  mutation AddStep($workflow_id: uuid!, $step_order: Int!, $step_type: String!, $config: jsonb!) {
+    insert_workflow_steps_one(object: {
+      workflow_id: $workflow_id,
+      step_order: $step_order,
+      step_type: $step_type,
+      config: $config
+    }) {
+      id
+      step_type
+      step_order
+    }
+  }
+`;
+
 const CREATE_WORKFLOW = gql`
   mutation CreateWorkflow($org_id: uuid!, $name: String!, $description: String, $created_by: uuid!, $now: timestamptz!) {
     insert_workflows_one(object: {
@@ -143,6 +158,59 @@ function CreateWorkflowForm({ orgId, userId, onCreated }) {
   );
 }
 
+function AddStepForm({ workflowId, currentStepCount, onAdded }) {
+  const [stepType, setStepType] = useState('llm_call');
+  const [configText, setConfigText] = useState('{}');
+  const [addStep, { loading, error }] = useMutation(ADD_STEP);
+
+  const handleSubmit = async () => {
+    let parsedConfig;
+    try {
+      parsedConfig = JSON.parse(configText || '{}');
+    } catch (e) {
+      alert('Config must be valid JSON, e.g. {"prompt": "hello"}');
+      return;
+    }
+
+    await addStep({
+      variables: {
+        workflow_id: workflowId,
+        step_order: currentStepCount + 1,
+        step_type: stepType,
+        config: parsedConfig,
+      },
+    });
+    setConfigText('{}');
+    onAdded();
+  };
+
+  return (
+    <div style={{ background: '#f0f0f0', padding: 10, marginTop: 10, marginBottom: 10 }}>
+      <strong>Add Step (will be step #{currentStepCount + 1})</strong>
+      <div style={{ marginTop: 8 }}>
+        <select value={stepType} onChange={e => setStepType(e.target.value)} style={{ marginRight: 8, padding: 4 }}>
+          <option value="llm_call">llm_call</option>
+          <option value="http_request">http_request</option>
+          <option value="conditional_branch">conditional_branch</option>
+          <option value="approval_gate">approval_gate</option>
+          <option value="db_write">db_write</option>
+          <option value="notify">notify</option>
+        </select>
+        <input
+          placeholder='Config JSON, e.g. {"prompt":"hello"}'
+          value={configText}
+          onChange={e => setConfigText(e.target.value)}
+          style={{ width: '50%', padding: 4, marginRight: 8 }}
+        />
+        <button onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Adding...' : 'Add Step'}
+        </button>
+      </div>
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </div>
+  );
+}
+
 function RunStatus({ runId }) {
   const { data, loading } = useSubscription(STEP_RUNS_SUB, { variables: { run_id: runId } });
   const [approveStep] = useMutation(APPROVE_STEP);
@@ -240,6 +308,14 @@ function Dashboard() {
           <h3>{wf.name}</h3>
           <p>Steps: {wf.workflow_steps.map(s => s.step_type).join(' → ') || 'none yet'}</p>
           <p>Last run: {wf.workflow_runs[0]?.status || 'never run'}</p>
+
+          {currentOrg?.role !== 'viewer' && (
+            <AddStepForm
+              workflowId={wf.id}
+              currentStepCount={wf.workflow_steps.length}
+              onAdded={refetch}
+            />
+          )}
 
           {currentOrg?.role !== 'viewer' && (
             <button onClick={() => handleRun(wf.id)}>Run Workflow</button>
