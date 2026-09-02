@@ -70,7 +70,7 @@ A GraphQL subscription on `step_runs` (filtered by `workflow_run_id`) streams st
 ### 1. Clone the repo
 
 ```bash
-git clone <REPO_URL>
+git clone https://github.com/hema-code06/agent-workflow-builder.git
 cd agent-workflow-builder
 ```
 
