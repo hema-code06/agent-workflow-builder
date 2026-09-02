@@ -42,4 +42,11 @@ The three pieces of the system are deployed independently rather than co-located
 
 One practical consequence of using Render's free tier: the backend sleeps after ~15 minutes of inactivity and takes 30–50 seconds to wake on the next request. This is disclosed in the README rather than hidden, since it affects the first click of a cold demo but not the underlying correctness of the system.
 
+## Post-Review Fixes
+
+Two issues were caught in a self-review pass after the initial build and corrected before submission:
+
+- **`org_usage_stats` permission bug:** the required aggregation view's `select` permission filtered on `org_id: { _in: [] }` — a copy-paste leftover that returned zero rows for every user regardless of org membership. The view's SQL definition was always correct; only the permission was wrong. Fixed by adding a manual relationship from the view to `org_members` (matching the pattern already used on `organizations`) and filtering on `org_members.user_id = X-Hasura-User-Id`.
+- **Committed admin secret:** `hasura/config.yaml` had the project's Hasura admin secret checked into the repo. It's been removed from version control going forward (replaced with a secret-free `config.yaml.example` template, and `config.yaml` added to `.gitignore`). Because a file can still exist in earlier commits even after being removed later, the actual remediation is rotating the secret in the nhost dashboard — done separately from this code change, since editing a file doesn't erase git history.
+
 ---
