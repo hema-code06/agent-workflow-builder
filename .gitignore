@@ -2,3 +2,6 @@ node_modules/
 .env
 dist/
 .env.local
+
+# Hasura CLI config can carry an admin_secret — never commit it
+hasura/config.yaml
