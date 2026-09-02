@@ -1,0 +1,9 @@
+endpoint: https://ppouljnhjstsyglhjsyl.hasura.ap-south-1.nhost.run
+# Admin secret intentionally NOT stored here. Pass it at run time instead:
+#   HASURA_GRAPHQL_ADMIN_SECRET=<your-secret> hasura metadata apply
+# or: hasura metadata apply --admin-secret <your-secret>
+version: 3
+metadata_directory: metadata
+actions:
+  kind: synchronous
+  handler_webhook_baseurl: http://localhost:3000

@@ -38,7 +38,9 @@ app.post('/trigger-workflow-run', async (req, res) => {
 
     console.log('Trigger requested for workflow:', workflow_id, 'by user:', callerUserId);
 
-    // Step 1: Verify caller is owner/editor in this workflow's org, and get org_id
+    // Layer 2 gating: re-check role and quota here rather than trusting Hasura's
+    // Layer 1 row permissions alone — this Action is a second, independent
+    // authorization boundary against cross-org access.
     const checkQuery = `
       query CheckAccess($workflow_id: uuid!, $user_id: uuid!) {
         workflows_by_pk(id: $workflow_id) {
@@ -68,7 +70,6 @@ app.post('/trigger-workflow-run', async (req, res) => {
       return res.status(403).json({ message: 'Organization quota exhausted' });
     }
 
-    // Step 2: Create the workflow_run
     const createRunMutation = `
       mutation CreateRun($workflow_id: uuid!, $triggered_by: uuid) {
         insert_workflow_runs_one(object: { workflow_id: $workflow_id, triggered_by: $triggered_by, status: "running" }) {
@@ -79,10 +80,10 @@ app.post('/trigger-workflow-run', async (req, res) => {
     const runResult = await hasuraRequest(createRunMutation, { workflow_id, triggered_by: callerUserId });
     const runId = runResult.insert_workflow_runs_one.id;
 
-    // Step 3: Respond immediately with run_id (we'll execute steps next — see next message)
+    // Respond immediately so the frontend gets run_id right away; step execution
+    // continues in the background and its progress is picked up via subscription.
     res.json({ run_id: runId, status: 'running' });
 
-    // Step 4: Execute steps asynchronously (after responding)
     executeWorkflowSteps(workflow_id, runId).catch(err => console.error('Background execution error:', err));
 
   } catch (err) {
@@ -106,9 +107,10 @@ async function withRetry(fn, retries = 1) {
   throw lastErr;
 }
 
-// llm_call — calls a real LLM API (using Groq's free API as example)
-// llm_call — STUBBED with disclosed artificial delay (see README: free-tier LLM APIs
-// were unavailable/deprecated during the timed assignment window)
+// llm_call — stubbed with a disclosed artificial delay in place of a real LLM API call
+// (see README: free-tier LLM API access was unavailable during the assignment window).
+// Swapping in a real provider means replacing the body of this function with an
+// actual fetch() to the provider's completion endpoint.
 async function runLlmCall(config, previousOutput) {
   return withRetry(async () => {
     const prompt = config.prompt || (previousOutput?.text) || 'Say hello';
@@ -144,14 +146,14 @@ async function runHttpRequest(config, previousOutput) {
   }, 1);
 }
 
-// db_write — saves result into our own tables (writing into step output effectively; here we log to a generic table)
+// db_write — saves the previous step's result. Returns what would be persisted;
+// a target-table insert keyed off config.table would replace this in a full build.
 async function runDbWrite(config, previousOutput) {
-  // For simplicity: just record what would be saved. In a real system,
-  // this would insert into a target table based on config.
   return { saved: true, data: previousOutput };
 }
 
-// notify — Slack/email alert (stubbed as console log — this counts as your Event Trigger implementation)
+// notify — Slack/email alert, stubbed as a console log. Real Slack/email delivery
+// would swap this for a webhook POST or an email-provider API call.
 async function runNotify(config, previousOutput) {
   console.log('NOTIFY:', config.message || 'Workflow notification', previousOutput);
   return { notified: true };
@@ -183,7 +185,6 @@ async function executeWorkflowSteps(workflowId, runId) {
   let previousOutput = null;
 
   for (const step of steps) {
-    // Create a step_run row, status running
     const createStepRun = `
       mutation CreateStepRun($workflow_run_id: uuid!, $workflow_step_id: uuid!, $input: jsonb!) {
         insert_step_runs_one(object: {
@@ -218,7 +219,8 @@ async function executeWorkflowSteps(workflowId, runId) {
       } else if (step.step_type === 'conditional_branch') {
         output = runConditionalBranch(step.config, previousOutput);
       } else if (step.step_type === 'approval_gate') {
-        // Pause the run and stop the loop entirely
+        // Pause here and stop the loop — no step_runs rows exist yet for
+        // anything after this step. approveStep resumes from this point.
         await hasuraRequest(`
           mutation PauseStepRun($id: uuid!) {
             update_step_runs_by_pk(pk_columns: { id: $id }, _set: { status: "paused" }) { id }
@@ -232,12 +234,11 @@ async function executeWorkflowSteps(workflowId, runId) {
         `, { id: runId });
 
         console.log('Run paused at approval_gate step:', step.id);
-        return; // STOP execution here — approveStep Action will resume later
+        return;
       } else {
         throw new Error(`Unknown step type: ${step.step_type}`);
       }
 
-      // Mark step_run as succeeded
       await hasuraRequest(`
         mutation SucceedStepRun($id: uuid!, $output: jsonb!) {
           update_step_runs_by_pk(pk_columns: { id: $id }, _set: { status: "succeeded", output: $output }) { id }
@@ -263,7 +264,7 @@ async function executeWorkflowSteps(workflowId, runId) {
     }
   }
 
-  // All steps succeeded — mark run completed, increment quota
+  // Every step succeeded — mark the run completed and count it against quota.
   await hasuraRequest(`
     mutation CompleteRun($id: uuid!, $completed_at: timestamptz!) {
       update_workflow_runs_by_pk(pk_columns: { id: $id }, _set: { status: "completed", completed_at: $completed_at }) { id }
@@ -287,7 +288,8 @@ app.post('/approve-step', async (req, res) => {
     const { step_run_id } = input;
     const callerUserId = session_variables['x-hasura-user-id'];
 
-    // Step 1: Get the step_run, its run, workflow, org, and caller's role in that org
+    // Layer 2 gating: this is a mid-execution decision, not a plain row read/write,
+    // so the approver's role is checked here rather than relying on a select permission.
     const getStepQuery = `
       query GetStepRun($id: uuid!, $user_id: uuid!) {
         step_runs_by_pk(id: $id) {
@@ -322,7 +324,6 @@ app.post('/approve-step', async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to approve this step' });
     }
 
-    // Step 2: Mark step_run approved + succeeded
     await hasuraRequest(`
       mutation ApproveStepRun($id: uuid!, $approved_by: uuid!, $approved_at: timestamptz!) {
         update_step_runs_by_pk(pk_columns: { id: $id }, _set: {
@@ -332,7 +333,7 @@ app.post('/approve-step', async (req, res) => {
         }) { id }
       }
     `, { id: step_run_id, approved_by: callerUserId, approved_at: new Date().toISOString() });
-    // Step 3: Set workflow_run back to running
+
     const runId = stepRun.workflow_run.id;
     await hasuraRequest(`
       mutation ResumeRun($id: uuid!) {
@@ -342,7 +343,8 @@ app.post('/approve-step', async (req, res) => {
 
     res.json({ success: true, message: 'Step approved, resuming run' });
 
-    // Step 4: Resume executing remaining steps (need workflow_id)
+    // Resume in the background — the workflow_id isn't in this request's input,
+    // so it's looked up from the run before continuing execution.
     const wfIdQuery = `query GetWfId($run_id: uuid!) { workflow_runs_by_pk(id: $run_id) { workflow_id } }`;
     const wfIdData = await hasuraRequest(wfIdQuery, { run_id: runId });
     resumeWorkflowSteps(wfIdData.workflow_runs_by_pk.workflow_id, runId, step_run_id).catch(err => console.error('Background resume error:', err));
@@ -354,7 +356,6 @@ app.post('/approve-step', async (req, res) => {
 });
 
 async function resumeWorkflowSteps(workflowId, runId, approvedStepRunId) {
-  // Get all steps in order
   const stepsQuery = `
     query GetSteps($workflow_id: uuid!) {
       workflow_steps(where: { workflow_id: { _eq: $workflow_id } }, order_by: { step_order: asc }) {

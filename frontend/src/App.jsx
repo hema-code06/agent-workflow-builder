@@ -1,18 +1,29 @@
-import { useState } from 'react';
-import { useAuthenticationStatus, useSignInEmailPassword, useUserId, useSignOut } from '@nhost/react';
-import { useQuery, useMutation, useSubscription, gql } from '@apollo/client';
-import { useAccessToken } from '@nhost/react';
-import { setApolloToken } from './apollo';
-
+import { useState } from "react";
+import {
+  useAuthenticationStatus,
+  useSignInEmailPassword,
+  useUserId,
+  useSignOut,
+} from "@nhost/react";
+import { useQuery, useMutation, useSubscription, gql } from "@apollo/client";
+import { useAccessToken } from "@nhost/react";
+import { setApolloToken } from "./apollo";
 
 const ADD_STEP = gql`
-  mutation AddStep($workflow_id: uuid!, $step_order: Int!, $step_type: String!, $config: jsonb!) {
-    insert_workflow_steps_one(object: {
-      workflow_id: $workflow_id,
-      step_order: $step_order,
-      step_type: $step_type,
-      config: $config
-    }) {
+  mutation AddStep(
+    $workflow_id: uuid!
+    $step_order: Int!
+    $step_type: String!
+    $config: jsonb!
+  ) {
+    insert_workflow_steps_one(
+      object: {
+        workflow_id: $workflow_id
+        step_order: $step_order
+        step_type: $step_type
+        config: $config
+      }
+    ) {
       id
       step_type
       step_order
@@ -21,15 +32,23 @@ const ADD_STEP = gql`
 `;
 
 const CREATE_WORKFLOW = gql`
-  mutation CreateWorkflow($org_id: uuid!, $name: String!, $description: String, $created_by: uuid!, $now: timestamptz!) {
-    insert_workflows_one(object: {
-      org_id: $org_id,
-      name: $name,
-      description: $description,
-      created_by: $created_by,
-      created_at: $now,
-      updated_at: $now
-    }) {
+  mutation CreateWorkflow(
+    $org_id: uuid!
+    $name: String!
+    $description: String
+    $created_by: uuid!
+    $now: timestamptz!
+  ) {
+    insert_workflows_one(
+      object: {
+        org_id: $org_id
+        name: $name
+        description: $description
+        created_by: $created_by
+        created_at: $now
+        updated_at: $now
+      }
+    ) {
       id
       name
     }
@@ -88,7 +107,10 @@ const APPROVE_STEP = gql`
 
 const STEP_RUNS_SUB = gql`
   subscription WatchRun($run_id: uuid!) {
-    step_runs(where: { workflow_run_id: { _eq: $run_id } }, order_by: { created_at: asc }) {
+    step_runs(
+      where: { workflow_run_id: { _eq: $run_id } }
+      order_by: { created_at: asc }
+    ) {
       id
       status
       output
@@ -98,26 +120,54 @@ const STEP_RUNS_SUB = gql`
 `;
 
 function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const { signInEmailPassword, isLoading, isError, error } = useSignInEmailPassword();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { signInEmailPassword, isLoading, isError, error } =
+    useSignInEmailPassword();
 
   return (
-    <div style={{ maxWidth: 400, margin: '100px auto', fontFamily: 'sans-serif' }}>
+    <div
+      style={{ maxWidth: 400, margin: "100px auto", fontFamily: "sans-serif" }}
+    >
       <h2>Login</h2>
-      <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={{ display: 'block', marginBottom: 10, width: '100%', padding: 8 }} />
-      <input placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} style={{ display: 'block', marginBottom: 10, width: '100%', padding: 8 }} />
-      <button onClick={() => signInEmailPassword(email, password)} disabled={isLoading} style={{ padding: 10, width: '100%' }}>
-        {isLoading ? 'Logging in...' : 'Login'}
+      <input
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{
+          display: "block",
+          marginBottom: 10,
+          width: "100%",
+          padding: 8,
+        }}
+      />
+      <input
+        placeholder="Password"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        style={{
+          display: "block",
+          marginBottom: 10,
+          width: "100%",
+          padding: 8,
+        }}
+      />
+      <button
+        onClick={() => signInEmailPassword(email, password)}
+        disabled={isLoading}
+        style={{ padding: 10, width: "100%" }}
+      >
+        {isLoading ? "Logging in..." : "Login"}
       </button>
-      {isError && <p style={{ color: 'red' }}>{error?.message}</p>}
+      {isError && <p style={{ color: "red" }}>{error?.message}</p>}
     </div>
   );
 }
 
 function CreateWorkflowForm({ orgId, userId, onCreated }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [createWorkflow, { loading }] = useMutation(CREATE_WORKFLOW);
 
   const handleSubmit = async () => {
@@ -131,42 +181,42 @@ function CreateWorkflowForm({ orgId, userId, onCreated }) {
         now: new Date().toISOString(),
       },
     });
-    setName('');
-    setDescription('');
+    setName("");
+    setDescription("");
     onCreated();
   };
 
   return (
-    <div style={{ border: '1px dashed #999', padding: 15, marginBottom: 20 }}>
+    <div style={{ border: "1px dashed #999", padding: 15, marginBottom: 20 }}>
       <h4>Create New Workflow</h4>
       <input
         placeholder="Workflow name"
         value={name}
-        onChange={e => setName(e.target.value)}
-        style={{ display: 'block', marginBottom: 8, width: '100%', padding: 6 }}
+        onChange={(e) => setName(e.target.value)}
+        style={{ display: "block", marginBottom: 8, width: "100%", padding: 6 }}
       />
       <input
         placeholder="Description (optional)"
         value={description}
-        onChange={e => setDescription(e.target.value)}
-        style={{ display: 'block', marginBottom: 8, width: '100%', padding: 6 }}
+        onChange={(e) => setDescription(e.target.value)}
+        style={{ display: "block", marginBottom: 8, width: "100%", padding: 6 }}
       />
       <button onClick={handleSubmit} disabled={loading || !name.trim()}>
-        {loading ? 'Creating...' : 'Create Workflow'}
+        {loading ? "Creating..." : "Create Workflow"}
       </button>
     </div>
   );
 }
 
 function AddStepForm({ workflowId, currentStepCount, onAdded }) {
-  const [stepType, setStepType] = useState('llm_call');
-  const [configText, setConfigText] = useState('{}');
+  const [stepType, setStepType] = useState("llm_call");
+  const [configText, setConfigText] = useState("{}");
   const [addStep, { loading, error }] = useMutation(ADD_STEP);
 
   const handleSubmit = async () => {
     let parsedConfig;
     try {
-      parsedConfig = JSON.parse(configText || '{}');
+      parsedConfig = JSON.parse(configText || "{}");
     } catch (e) {
       alert('Config must be valid JSON, e.g. {"prompt": "hello"}');
       return;
@@ -180,15 +230,26 @@ function AddStepForm({ workflowId, currentStepCount, onAdded }) {
         config: parsedConfig,
       },
     });
-    setConfigText('{}');
+    setConfigText("{}");
     onAdded();
   };
 
   return (
-    <div style={{ background: '#f0f0f0', padding: 10, marginTop: 10, marginBottom: 10 }}>
+    <div
+      style={{
+        background: "#f0f0f0",
+        padding: 10,
+        marginTop: 10,
+        marginBottom: 10,
+      }}
+    >
       <strong>Add Step (will be step #{currentStepCount + 1})</strong>
       <div style={{ marginTop: 8 }}>
-        <select value={stepType} onChange={e => setStepType(e.target.value)} style={{ marginRight: 8, padding: 4 }}>
+        <select
+          value={stepType}
+          onChange={(e) => setStepType(e.target.value)}
+          style={{ marginRight: 8, padding: 4 }}
+        >
           <option value="llm_call">llm_call</option>
           <option value="http_request">http_request</option>
           <option value="conditional_branch">conditional_branch</option>
@@ -199,41 +260,63 @@ function AddStepForm({ workflowId, currentStepCount, onAdded }) {
         <input
           placeholder='Config JSON, e.g. {"prompt":"hello"}'
           value={configText}
-          onChange={e => setConfigText(e.target.value)}
-          style={{ width: '50%', padding: 4, marginRight: 8 }}
+          onChange={(e) => setConfigText(e.target.value)}
+          style={{ width: "50%", padding: 4, marginRight: 8 }}
         />
         <button onClick={handleSubmit} disabled={loading}>
-          {loading ? 'Adding...' : 'Add Step'}
+          {loading ? "Adding..." : "Add Step"}
         </button>
       </div>
-      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+      {error && <p style={{ color: "red" }}>{error.message}</p>}
     </div>
   );
 }
 
 function RunStatus({ runId }) {
-  const { data, loading } = useSubscription(STEP_RUNS_SUB, { variables: { run_id: runId } });
+  const { data, loading } = useSubscription(STEP_RUNS_SUB, {
+    variables: { run_id: runId },
+  });
   const [approveStep] = useMutation(APPROVE_STEP);
 
   if (loading) return <p>Loading run status...</p>;
 
   return (
-    <div style={{ marginTop: 10, padding: 10, background: '#f5f5f5' }}>
+    <div style={{ marginTop: 10, padding: 10, background: "#f5f5f5" }}>
       <strong>Live Run Status:</strong>
-      {data?.step_runs.map(sr => (
-        <div key={sr.id} style={{ padding: 8, margin: '4px 0', background: '#fff', border: '1px solid #ddd' }}>
-          <span style={{
-            fontWeight: 'bold',
-            color: sr.status === 'succeeded' ? 'green' : sr.status === 'failed' ? 'red' : sr.status === 'paused' ? 'orange' : 'blue'
-          }}>
+      {data?.step_runs.map((sr) => (
+        <div
+          key={sr.id}
+          style={{
+            padding: 8,
+            margin: "4px 0",
+            background: "#fff",
+            border: "1px solid #ddd",
+          }}
+        >
+          <span
+            style={{
+              fontWeight: "bold",
+              color:
+                sr.status === "succeeded"
+                  ? "green"
+                  : sr.status === "failed"
+                    ? "red"
+                    : sr.status === "paused"
+                      ? "orange"
+                      : "blue",
+            }}
+          >
             {sr.status.toUpperCase()}
           </span>
-          {sr.status === 'paused' && (
-            <button style={{ marginLeft: 10 }} onClick={() => approveStep({ variables: { step_run_id: sr.id } })}>
+          {sr.status === "paused" && (
+            <button
+              style={{ marginLeft: 10 }}
+              onClick={() => approveStep({ variables: { step_run_id: sr.id } })}
+            >
               Approve
             </button>
           )}
-          {sr.error && <p style={{ color: 'red' }}>{sr.error}</p>}
+          {sr.error && <p style={{ color: "red" }}>{sr.error}</p>}
         </div>
       ))}
     </div>
@@ -245,15 +328,23 @@ function Dashboard() {
   const { signOut } = useSignOut();
   const accessToken = useAccessToken();
   setApolloToken(accessToken);
-  const { data: orgsData, loading: orgsLoading, error: orgsError } = useQuery(GET_MY_ORGS);
+  const {
+    data: orgsData,
+    loading: orgsLoading,
+    error: orgsError,
+  } = useQuery(GET_MY_ORGS);
   const [selectedOrgId, setSelectedOrgId] = useState(null);
   const [activeRunId, setActiveRunId] = useState(null);
   const [activeWorkflowId, setActiveWorkflowId] = useState(null);
 
   const myOrgs = orgsData?.org_members || [];
-  const currentOrg = myOrgs.find(m => m.org_id === selectedOrgId);
+  const currentOrg = myOrgs.find((m) => m.org_id === selectedOrgId);
 
-  const { data: workflowsData, loading: wfLoading, refetch } = useQuery(GET_WORKFLOWS, {
+  const {
+    data: workflowsData,
+    loading: wfLoading,
+    refetch,
+  } = useQuery(GET_WORKFLOWS, {
     variables: { org_id: selectedOrgId },
     skip: !selectedOrgId,
   });
@@ -270,19 +361,24 @@ function Dashboard() {
   if (orgsLoading) return <p>Loading orgs...</p>;
 
   return (
-    <div style={{ maxWidth: 800, margin: '40px auto', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+    <div
+      style={{ maxWidth: 800, margin: "40px auto", fontFamily: "sans-serif" }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>Workflow Builder</h2>
         <button onClick={signOut}>Sign Out</button>
       </div>
 
       <div style={{ marginBottom: 20 }}>
         <strong>Select Organization:</strong>
-        {myOrgs.map(m => (
+        {myOrgs.map((m) => (
           <button
             key={m.org_id}
             onClick={() => setSelectedOrgId(m.org_id)}
-            style={{ marginLeft: 8, fontWeight: selectedOrgId === m.org_id ? 'bold' : 'normal' }}
+            style={{
+              marginLeft: 8,
+              fontWeight: selectedOrgId === m.org_id ? "bold" : "normal",
+            }}
           >
             {m.organization.name} ({m.role})
           </button>
@@ -290,10 +386,13 @@ function Dashboard() {
       </div>
 
       {currentOrg && (
-        <p>Quota: {currentOrg.organization.quota_used} / {currentOrg.organization.quota_limit}</p>
+        <p>
+          Quota: {currentOrg.organization.quota_used} /{" "}
+          {currentOrg.organization.quota_limit}
+        </p>
       )}
 
-      {currentOrg && currentOrg.role !== 'viewer' && (
+      {currentOrg && currentOrg.role !== "viewer" && (
         <CreateWorkflowForm
           orgId={selectedOrgId}
           userId={userId}
@@ -303,13 +402,20 @@ function Dashboard() {
 
       {wfLoading && <p>Loading workflows...</p>}
 
-      {workflowsData?.workflows.map(wf => (
-        <div key={wf.id} style={{ border: '1px solid #ccc', padding: 15, marginBottom: 15 }}>
+      {workflowsData?.workflows.map((wf) => (
+        <div
+          key={wf.id}
+          style={{ border: "1px solid #ccc", padding: 15, marginBottom: 15 }}
+        >
           <h3>{wf.name}</h3>
-          <p>Steps: {wf.workflow_steps.map(s => s.step_type).join(' → ') || 'none yet'}</p>
-          <p>Last run: {wf.workflow_runs[0]?.status || 'never run'}</p>
+          <p>
+            Steps:{" "}
+            {wf.workflow_steps.map((s) => s.step_type).join(" → ") ||
+              "none yet"}
+          </p>
+          <p>Last run: {wf.workflow_runs[0]?.status || "never run"}</p>
 
-          {currentOrg?.role !== 'viewer' && (
+          {currentOrg?.role !== "viewer" && (
             <AddStepForm
               workflowId={wf.id}
               currentStepCount={wf.workflow_steps.length}
@@ -317,11 +423,13 @@ function Dashboard() {
             />
           )}
 
-          {currentOrg?.role !== 'viewer' && (
+          {currentOrg?.role !== "viewer" && (
             <button onClick={() => handleRun(wf.id)}>Run Workflow</button>
           )}
 
-          {activeRunId && activeWorkflowId === wf.id && <RunStatus runId={activeRunId} />}
+          {activeRunId && activeWorkflowId === wf.id && (
+            <RunStatus runId={activeRunId} />
+          )}
         </div>
       ))}
     </div>
